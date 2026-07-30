@@ -18,7 +18,12 @@ export type OpenAIChatRequest = {
 
 // The LiveKit voice agent plants `SESSION_EMAIL: <addr>` in the system message
 // (via the session context prompt + dynamic_variables).
-const SESSION_EMAIL_MARKER = /SESSION_EMAIL:\s*([^\s<]+)/;
+//
+// Requires an `@` and rejects `$ { }`, so an unsubstituted `${email}` — what a
+// visitor who gave no email leaves behind, since buildDynamicVariables drops
+// empty values — reads as "no email" instead of being passed to the lead
+// resolver as the literal string `${email}`.
+const SESSION_EMAIL_MARKER = /SESSION_EMAIL:\s*([^\s<{}$]+@[^\s<{}$]+)/;
 
 /** Flatten OpenAI content (string | parts[]) to text, keeping only `text` parts. */
 export function extractText(content: string | OpenAIContentPart[]): string {

@@ -107,6 +107,21 @@ describe('message helpers', () => {
     expect(extractSessionEmail([{ role: 'user', content: 'SESSION_EMAIL: x@y.com' }])).toBeNull();
   });
 
+  // A visitor who submits no email leaves `email` out of `dynamic_variables`,
+  // so the context prompt's `${email}` can reach us unsubstituted. That must
+  // read as "no email", never as a lookup for the literal token.
+  it('extractSessionEmail ignores an unsubstituted template token', () => {
+    expect(
+      extractSessionEmail([{ role: 'system', content: 'You are Wayne. SESSION_EMAIL: ${email}' }]),
+    ).toBeNull();
+  });
+
+  it('extractSessionEmail ignores a marker with no address', () => {
+    expect(
+      extractSessionEmail([{ role: 'system', content: 'SESSION_EMAIL: \nnext line' }]),
+    ).toBeNull();
+  });
+
   it('toAnthropicMessages keeps non-empty user/assistant turns only', () => {
     const out = toAnthropicMessages([
       { role: 'system', content: 'sys' },

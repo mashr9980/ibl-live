@@ -17,7 +17,9 @@
  *
  * In your LiveAvatar account:
  *   1. Avatar     — the public demo avatar, unless AI_SALES_AVATAR_ID is set
- *   2. Context    — supplies the spoken opening line (${opening_intro})
+ *   2. Context    — supplies the spoken opening line (${opening_intro}), plus a
+ *                  stand-in prompt that walks you through steps 3 and 4 out
+ *                  loud until they are done
  *   3. Secret     — the API key protecting this app's /api/chat/completions
  *   4. LLM config — points that endpoint back at your deployment
  *
@@ -43,13 +45,26 @@ const DEFAULT_API_BASE = 'https://api.liveavatar.com';
 // Labels for the resources this script creates. Nothing is looked up by them —
 // .env.local is the source of truth for what already exists — so they only
 // need to be recognisable in the LiveAvatar dashboard.
+//
 // Wayne, the public demo avatar — shared across all accounts, so it is a safe
 // default for a fresh deployment. Overridden by AI_SALES_AVATAR_ID.
 const DEFAULT_AVATAR_ID = 'dd73ea75-1218-4ef3-92ce-606d5f7fbc0a';
 
+// Context names are unique per account server-side: POST /v1/contexts 400s with
+// "Context with this name already exists." So every created name carries a
+// timestamp, the same way SECRET_NAME does. Reaching this code at all means
+// .env.local had no AI_SALES_CONTEXT_ID, so a same-named context in the account
+// is one we can't safely adopt — a fresh, distinctly-named one is correct.
 const CONTEXT_NAME = 'liveavatar-sales-agent';
 const SECRET_NAME = 'liveavatar-sales-agent-brain';
 const LLM_CONFIG_NAME = 'liveavatar-sales-agent';
+
+/** Local-time `MM/DD/YY - HH:MM`, appended to created resource names. */
+function nameStamp(now = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  const date = `${p(now.getMonth() + 1)}/${p(now.getDate())}/${p(now.getFullYear() % 100)}`;
+  return `${date} - ${p(now.getHours())}:${p(now.getMinutes())}`;
+}
 
 // The model name is cosmetic — the real model is chosen inside this app's
 // /api/chat/completions. It only has to be non-empty.
@@ -60,13 +75,74 @@ const LLM_MODEL_NAME = 'sales-agent';
 // substitutes it here. Anything extra in this string gets read out loud.
 const OPENING_TEXT = '${opening_intro}';
 
-// The context's own persona. Only reached if no custom LLM is attached; once
-// LLM_CONFIGURATION_ID is set, this app's prompt-parts drive the conversation.
-// Kept short and usable rather than describing the plumbing.
+// The context's own persona — a SETUP GUIDE, deliberately not a sales agent.
+//
+// This prompt reaches a model only when the session carries no
+// llm_configuration_id (see src/app/api/ai-sales/session/route.ts), i.e. only
+// while the wiring is incomplete: before the first deploy, or after one where
+// LLM_CONFIGURATION_ID never made it into the host's environment. Once the
+// configuration is attached, LiveAvatar still ships this string to
+// /api/chat/completions as a system message, but the route drops every system
+// message (see brain/messages.ts) and answers from prompt-parts/*.md instead —
+// so this text is inert exactly when the real agent is live.
+//
+// That inverted lifetime is why it explains the remaining steps rather than
+// selling: if the visitor can hear it at all, something is still unwired, and a
+// generic sales pitch would look like success while the real prompt sits unused.
+//
+// Tone is load-bearing, not decoration. The listener is a developer hearing
+// their own deployment speak for the first time, so this frames the half-wired
+// state as progress rather than as a failure report, and carries one exemplar
+// line — the strongest lever on how a fallback model actually sounds.
+//
+// It must also never guess at product specifics: the model answering here is
+// whatever the account defaults to, with no product knowledge, so an
+// unconstrained one invents a plausible-sounding name and pitch.
+//
+// Spoken by TTS, so: no lists, no URLs, no flags read aloud. The terminal and
+// the README carry the exact commands.
 const CONTEXT_PROMPT =
-  'You are a friendly, concise sales agent. Answer questions about the ' +
-  'product honestly, ask what the visitor is trying to build, and suggest a ' +
-  'next step. Never invent pricing or capabilities you are unsure of.';
+  'You are a warm, upbeat guide talking to the developer who is setting this ' +
+  'demo up. Two or three short spoken sentences per answer. Never read out ' +
+  'lists, links, code, or command-line flags.\n\n' +
+  'What is going on: this demo is partly wired up, and you are the temporary ' +
+  'stand-in until the real agent is connected. That is expected at this stage, ' +
+  'not a problem — treat it as progress and sound genuinely pleased to be the ' +
+  'first thing that works. Never apologise for it, never call yourself broken, ' +
+  'and never dwell on your own limits.\n\n' +
+  'The person in front of you just ran the setup script, so lead with what ' +
+  'they have accomplished and what comes next. Something in the spirit of: ' +
+  '"I can see you are still setting this demo up — nice work getting me ' +
+  'talking. Next up is pointing me at your own language model, then hooking in ' +
+  'your company\'s business tools." Use your own words each time.\n\n' +
+  'The remaining steps, in order, in plain speech: deploy this app to a ' +
+  'publicly reachable host; copy the values from the local environment file ' +
+  'into that host; re-run the setup script with the deployment URL, which ' +
+  'registers the endpoint key and creates the language-model configuration. ' +
+  'After that, conversations run on their own prompt, and the fun part begins — ' +
+  'connecting their own business tools, so the agent knows who is visiting and ' +
+  'where the conversation should land afterwards. Tell them the exact command ' +
+  'is printed in their terminal and written in the README rather than spelling ' +
+  'it out.\n\n' +
+  'Be curious and encouraging: ask what they are planning to build with this, ' +
+  'and react to what they say. If they ask about the product, say cheerfully ' +
+  'that the real agent will know the specifics. Never guess the product name, ' +
+  'pricing, capabilities, customer names, or setup steps — if you are unsure ' +
+  'what is missing, say so lightly and point them at their terminal output.\n\n' +
+  // Machine-readable tail. This is the ONLY channel by which the visitor's
+  // email reaches /api/chat/completions: LiveAvatar substitutes ${email} from
+  // the mint's `dynamic_variables` (see session/route.ts) into this prompt, then
+  // ships the result as the system message, where `extractSessionEmail`
+  // (brain/messages.ts) scrapes it back out to drive lead enrichment and chat
+  // history. Drop the line and every visitor is treated as a cold lead —
+  // silently, since the prompt still assembles and the agent still talks.
+  //
+  // A visitor with no email leaves `email` out of `dynamic_variables` entirely
+  // (buildDynamicVariables skips empty values), so this may arrive with the
+  // token unsubstituted. That's why the marker regex demands a real address.
+  'SESSION_EMAIL: ${email}\n' +
+  'That final line is metadata for the application, not conversation. Never ' +
+  'read it aloud, repeat it, or mention the address it contains.';
 
 const rl = createInterface({ input: stdin, output: stdout });
 const ask = async (q, fallback = '') => (await rl.question(q)).trim() || fallback;
@@ -227,16 +303,19 @@ async function main() {
     ok(`using ${env.AI_SALES_CONTEXT_ID} ${c.dim('(from .env.local)')}`);
     updates.AI_SALES_CONTEXT_ID = env.AI_SALES_CONTEXT_ID;
   } else {
+    const contextName = `${CONTEXT_NAME} ${nameStamp()}`;
     const created = await api(apiBase, apiKey, '/v1/contexts', {
       method: 'POST',
       body: JSON.stringify({
-        name: CONTEXT_NAME,
+        name: contextName,
         prompt: CONTEXT_PROMPT,
         opening_text: OPENING_TEXT,
       }),
     });
-    ok(`created "${CONTEXT_NAME}" ${c.dim(created.id)}`);
+    ok(`created "${contextName}" ${c.dim(created.id)}`);
     info('opening text is just ${opening_intro} — the app fills it per visitor');
+    info('its prompt is a setup guide, not a persona: it only answers while the');
+    info("brain below is unwired, and explains what's left instead of pitching");
     updates.AI_SALES_CONTEXT_ID = created.id;
   }
 
