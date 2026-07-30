@@ -1,0 +1,8 @@
+# Generated / lockfiles
+package-lock.json
+.next/
+node_modules/
+coverage/
+
+# Binary-ish assets prettier reformats unhelpfully
+public/icons/*.svg
