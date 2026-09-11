@@ -9,7 +9,7 @@ import 'server-only';
 export type IblaiConfig = { apiKey: string; org: string; model: string; chatUrl: string };
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
-export const DEFAULT_IBLAI_MODEL = 'google/gemini-3.5-flash';
+export const DEFAULT_IBLAI_MODEL = 'google/gemini-3.1-flash-lite';
 export const DEFAULT_IBLAI_ASGI_URL = 'https://asgi.data.iblai.app';
 
 /** Null until IBLAI_API_KEY and IBLAI_ORG are both set. */

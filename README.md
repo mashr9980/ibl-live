@@ -95,15 +95,15 @@ fills all of this in; the API key is the only value it can't invent.
 avatar still connects and greets people, but answers come from your account's
 default LLM rather than this app's prompt.
 
-| Var                           | Required | Purpose                                                              |
-| ----------------------------- | -------- | -------------------------------------------------------------------- |
-| `IBLAI_API_KEY` / `IBLAI_ORG` | ✅       | ibl.ai Platform API Token and organization key: the brain            |
-| `IBLAI_MODEL`                 | —        | `provider/model` on the platform (default `google/gemini-3.5-flash`) |
-| `IBLAI_ASGI_URL`              | —        | Streaming host; only for self-hosted ibl.ai                          |
-| `AI_SALES_LLM_CONFIG_API_KEY` | ✅       | Protects this app's `/api/chat/completions` — see below              |
-| `LLM_CONFIGURATION_ID`        | —        | Routes each turn to this app's brain; blank = account default LLM    |
-| `PROMPT_PARTS_DIR`            | —        | Override the bundled prompt-parts directory                          |
-| `AI_SALES_LEAD_RESOLVER`      | —        | Lead-enrichment implementation; blank = no-op stub, no lookups       |
+| Var                           | Required | Purpose                                                                   |
+| ----------------------------- | -------- | ------------------------------------------------------------------------- |
+| `IBLAI_API_KEY` / `IBLAI_ORG` | ✅       | ibl.ai Platform API Token and organization key: the brain                 |
+| `IBLAI_MODEL`                 | —        | `provider/model` on the platform (default `google/gemini-3.1-flash-lite`) |
+| `IBLAI_ASGI_URL`              | —        | Streaming host; only for self-hosted ibl.ai                               |
+| `AI_SALES_LLM_CONFIG_API_KEY` | ✅       | Protects this app's `/api/chat/completions` — see below                   |
+| `LLM_CONFIGURATION_ID`        | —        | Routes each turn to this app's brain; blank = account default LLM         |
+| `PROMPT_PARTS_DIR`            | —        | Override the bundled prompt-parts directory                               |
+| `AI_SALES_LEAD_RESOLVER`      | —        | Lead-enrichment implementation; blank = no-op stub, no lookups            |
 
 **3. After the call** — summary fan-out on disconnect. Both integrations are
 independent; leave either blank to skip it.

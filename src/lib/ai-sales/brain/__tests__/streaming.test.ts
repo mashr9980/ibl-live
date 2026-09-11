@@ -6,7 +6,7 @@ import type { IblaiConfig } from '../iblai';
 const config: IblaiConfig = {
   apiKey: 'token',
   org: 'org1',
-  model: 'google/gemini-3.5-flash',
+  model: 'google/gemini-3.1-flash-lite',
   chatUrl: 'https://asgi.example/api/ai-mentor/orgs/org1/v1/chat/completions',
 };
 
@@ -70,7 +70,7 @@ describe('streamChatCompletion', () => {
     expect(calls[0]!.url).toBe(config.chatUrl);
     expect((calls[0]!.init.headers as Record<string, string>).Authorization).toBe('Bearer token');
     const sent = JSON.parse(String(calls[0]!.init.body));
-    expect(sent.model).toBe('google/gemini-3.5-flash');
+    expect(sent.model).toBe('google/gemini-3.1-flash-lite');
     expect(sent.stream).toBe(true);
     expect(sent).not.toHaveProperty('max_tokens');
     expect(sent.messages[0]).toEqual({ role: 'system', content: 'You are a guide.' });
