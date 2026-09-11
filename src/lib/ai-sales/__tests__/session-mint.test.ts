@@ -66,3 +66,56 @@ describe('isBusyUpstream', () => {
     expect(isBusyUpstream(500, 'boom')).toBe(false);
   });
 });
+
+import { buildTokenPayload } from '../session-mint';
+
+describe('buildTokenPayload', () => {
+  it('FULL mode carries the persona, the brain and the top-level variables', () => {
+    const p = buildTokenPayload({
+      mode: 'full',
+      avatarId: 'av',
+      maxSessionDuration: 120,
+      language: 'en',
+      contextId: 'ctx',
+      voiceId: null,
+      sttProvider: 'deepgram',
+      llmConfigurationId: 'llm',
+      dynamicVariables: { username: 'A', opening_intro: 'Hi A' },
+      sandbox: false,
+    });
+    expect(p).toEqual({
+      mode: 'FULL',
+      avatar_id: 'av',
+      max_session_duration: 120,
+      avatar_persona: { language: 'en', context_id: 'ctx', stt_config: { provider: 'deepgram' } },
+      llm_configuration_id: 'llm',
+      dynamic_variables: { username: 'A', opening_intro: 'Hi A' },
+    });
+  });
+
+  it('ElevenLabs mode is LITE with the agent config and no top-level variables', () => {
+    const p = buildTokenPayload({
+      mode: 'elevenlabs',
+      avatarId: 'av',
+      maxSessionDuration: 120,
+      secretId: 'sec',
+      agentId: 'agent_1',
+      voiceId: null,
+      agentVariables: { user_name: 'A' },
+      sandbox: true,
+    });
+    expect(p).toEqual({
+      mode: 'LITE',
+      avatar_id: 'av',
+      max_session_duration: 120,
+      is_sandbox: true,
+      elevenlabs_agent_config: {
+        secret_id: 'sec',
+        agent_id: 'agent_1',
+        dynamic_variables: { user_name: 'A' },
+      },
+    });
+    expect(p).not.toHaveProperty('dynamic_variables');
+    expect(p).not.toHaveProperty('avatar_persona');
+  });
+});

@@ -19,6 +19,18 @@ Built from HeyGen's open-source
    `/api/chat/completions`, which assembles the ibl.ai persona and streams the
    answer back as OpenAI-style events.
 
+## Two modes
+
+`AI_SALES_MODE=full` (default): LiveAvatar listens and speaks, and this app's
+brain route answers with the persona in `prompt-parts`. Two credits a minute.
+
+`AI_SALES_MODE=elevenlabs`: LiveAvatar LITE mode, one credit a minute. An
+ElevenLabs conversational agent listens, thinks and speaks in one model, with
+the ibl.ai website pages as its knowledge base, and LiveAvatar renders the
+face. Faster turns. Needs the ElevenLabs key registered as a LiveAvatar secret
+(`POST /v1/secrets`, type `ELEVENLABS_API_KEY`) and the agent id; the brain
+route and the LLM configuration are not used.
+
 ## Quick start
 
 Requires Node 22 or newer.

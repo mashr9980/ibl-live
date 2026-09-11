@@ -80,6 +80,7 @@ type TokenResponse = {
   session_token: string;
   session_signature: string | null;
   api_base: string;
+  mode?: 'full' | 'elevenlabs';
   lead: {
     first_name: string | null;
     company: string | null;
@@ -134,6 +135,8 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
   // Fires once when the countdown crosses the wrap-up threshold so we don't
   // spam the agent. Reset alongside other refs at session start.
   const timeWarningSentRef = useRef(false);
+  // In ElevenLabs mode the agent owns the voice; a speak_text command would be ignored or collide.
+  const sessionModeRef = useRef<'full' | 'elevenlabs'>('full');
   const {
     attachStream,
     startSession,
@@ -340,6 +343,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
     if (sessionState !== SessionState.CONNECTED) return;
     if (!targetDate) return;
     if (timeWarningSentRef.current) return;
+    if (sessionModeRef.current === 'elevenlabs') return;
     // Short caps (sandbox is 60 s, small free tiers) warn at a quarter of the
     // session instead of two minutes, or the wrap-up would fire at the start.
     const warnAt = Math.min(
@@ -492,6 +496,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
       if (data.lead) writeLeadHint(email, data.lead);
       sessionIdRef.current = data.session_id;
       sessionSignatureRef.current = data.session_signature;
+      sessionModeRef.current = data.mode ?? 'full';
       sessionStartRef.current = Date.now();
       timeWarningSentRef.current = false;
       // Clear the pre-mint ref now that we've consumed the token. Today the

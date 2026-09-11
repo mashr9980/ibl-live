@@ -74,3 +74,74 @@ export function isBusyUpstream(status: number, body: string): boolean {
   if (status !== 400 && status !== 403 && status !== 409) return false;
   return /concurren|credit|quota|insufficient|limit reached|too many/i.test(body);
 }
+
+export type SessionMode = 'full' | 'elevenlabs';
+
+export type FullModeInput = {
+  mode: 'full';
+  avatarId: string;
+  maxSessionDuration: number;
+  language: string;
+  contextId: string;
+  voiceId: string | null;
+  sttProvider: string | null;
+  llmConfigurationId: string | null;
+  dynamicVariables: Record<string, string>;
+  sandbox: boolean;
+};
+
+export type ElevenLabsModeInput = {
+  mode: 'elevenlabs';
+  avatarId: string;
+  maxSessionDuration: number;
+  secretId: string;
+  agentId: string;
+  voiceId: string | null;
+  /** Substituted into the ElevenLabs agent's own prompt / first message ({{user_name}}). */
+  agentVariables: Record<string, string>;
+  sandbox: boolean;
+};
+
+/**
+ * The body of POST /v1/sessions/token.
+ *
+ * FULL: LiveAvatar runs speech recognition, the brain (this app, via
+ * llm_configuration_id) and the voice; the context supplies the opening line.
+ * ELEVENLABS: LITE mode, one credit a minute; an ElevenLabs conversational
+ * agent listens, thinks and speaks, LiveAvatar only renders the face. Top-level
+ * dynamic_variables and language are rejected for provider agents, so the
+ * visitor's name travels inside elevenlabs_agent_config instead.
+ */
+export function buildTokenPayload(input: FullModeInput | ElevenLabsModeInput) {
+  const base = {
+    avatar_id: input.avatarId,
+    max_session_duration: input.maxSessionDuration,
+    ...(input.sandbox ? { is_sandbox: true } : {}),
+  };
+  if (input.mode === 'elevenlabs') {
+    return {
+      mode: 'LITE' as const,
+      ...base,
+      elevenlabs_agent_config: {
+        secret_id: input.secretId,
+        agent_id: input.agentId,
+        ...(input.voiceId ? { voice_id: input.voiceId } : {}),
+        ...(Object.keys(input.agentVariables).length
+          ? { dynamic_variables: input.agentVariables }
+          : {}),
+      },
+    };
+  }
+  return {
+    mode: 'FULL' as const,
+    ...base,
+    avatar_persona: {
+      language: input.language,
+      context_id: input.contextId,
+      ...(input.voiceId ? { voice_id: input.voiceId } : {}),
+      ...(input.sttProvider ? { stt_config: { provider: input.sttProvider } } : {}),
+    },
+    ...(input.llmConfigurationId ? { llm_configuration_id: input.llmConfigurationId } : {}),
+    dynamic_variables: input.dynamicVariables,
+  };
+}

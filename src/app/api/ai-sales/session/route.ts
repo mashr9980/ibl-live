@@ -21,6 +21,7 @@ import { signSessionId } from '@/lib/ai-sales/session-auth';
 import {
   BUSY_MESSAGE,
   buildDynamicVariables,
+  buildTokenPayload,
   DEFAULT_API_BASE,
   DEFAULT_LANGUAGE,
   DEFAULT_MAX_SESSION_DURATION,
@@ -79,7 +80,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Required in practice even though the API marks it optional: the context
     // supplies the avatar's `opening_text`, which is where `${opening_intro}`
     // is substituted. Without one the avatar connects and then says nothing.
-    contextId = env('AI_SALES_CONTEXT_ID');
+    contextId =
+      optionalEnv('AI_SALES_MODE') === 'elevenlabs'
+        ? (optionalEnv('AI_SALES_CONTEXT_ID') ?? '')
+        : env('AI_SALES_CONTEXT_ID');
     language = optionalEnv('AI_SALES_LANGUAGE') ?? DEFAULT_LANGUAGE;
     const rawDuration = optionalEnv('AI_SALES_MAX_SESSION_DURATION');
     if (rawDuration !== null) {
@@ -139,36 +143,46 @@ export async function POST(req: NextRequest): Promise<Response> {
     'X-API-KEY': apiKey,
   };
 
-  const payload = {
-    mode: 'FULL' as const,
-    avatar_id: avatarId,
-    // Required, and capped by the account tier.
-    max_session_duration: maxSessionDuration,
-    // FULL mode requires exactly one of `avatar_persona` or `voice_agent`;
-    // omitting both is a 422. We send the persona inline so a deployment needs
-    // no pre-built voice-agent resource. `context_id` is mandatory here — it
-    // carries the `opening_text` the avatar speaks first, and the conversation
-    // thereafter is driven by this app's prompt via `llm_configuration_id`.
-    //
-    // Note this also keeps `dynamic_variables` at the top level: the
-    // `voice_agent` form carries its own nested `dynamic_variables` and
-    // rejects the top-level field, which would break the opening line.
-    avatar_persona: {
+  const sandbox = optionalEnv('AI_SALES_SANDBOX') === '1';
+  const mode = optionalEnv('AI_SALES_MODE') === 'elevenlabs' ? 'elevenlabs' : 'full';
+  let payload: ReturnType<typeof buildTokenPayload>;
+  if (mode === 'elevenlabs') {
+    const secretId = optionalEnv('ELEVENLABS_SECRET_ID');
+    const agentId = optionalEnv('ELEVENLABS_AGENT_ID');
+    if (!secretId || !agentId) {
+      return Response.json(
+        {
+          error: {
+            message: 'AI_SALES_MODE=elevenlabs needs ELEVENLABS_SECRET_ID and ELEVENLABS_AGENT_ID',
+          },
+        },
+        { status: 500 },
+      );
+    }
+    payload = buildTokenPayload({
+      mode,
+      avatarId,
+      maxSessionDuration,
+      secretId,
+      agentId,
+      voiceId,
+      agentVariables: buildDynamicVariables({ user_name: displayName }),
+      sandbox,
+    });
+  } else {
+    payload = buildTokenPayload({
+      mode,
+      avatarId,
+      maxSessionDuration,
       language,
-      context_id: contextId,
-      ...(voiceId ? { voice_id: voiceId } : {}),
-      // Speech recognition provider (deepgram | assembly_ai | gladia | elevenlabs);
-      // unset = the account default.
-      ...(optionalEnv('AI_SALES_STT_PROVIDER') ? { stt_config: { provider: optionalEnv('AI_SALES_STT_PROVIDER') } } : {}),
-    },
-    // Points the session's brain at this app's /api/chat/completions.
-    // Omitted when unset — the session then uses the account default.
-    ...(llmConfigurationId ? { llm_configuration_id: llmConfigurationId } : {}),
-    // Sandbox sessions cost no credits: only the public Wayne avatar, about a
-    // minute long. For wiring checks, never for visitors.
-    ...(optionalEnv('AI_SALES_SANDBOX') === '1' ? { is_sandbox: true } : {}),
-    dynamic_variables: dynamicVariables,
-  };
+      contextId,
+      voiceId,
+      sttProvider: optionalEnv('AI_SALES_STT_PROVIDER'),
+      llmConfigurationId,
+      dynamicVariables,
+      sandbox,
+    });
+  }
 
   let tokenBody: PublicTokenResponse;
   try {
@@ -216,6 +230,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     session_token: sessionToken,
     session_signature: sessionSignature,
     api_base: apiBase,
+    // Which stack speaks: the page skips its spoken wrap-up when a provider agent owns the voice.
+    mode,
     // Echo minimal lead metadata so the client can render personalized chrome
     // (e.g. "Starting chat as Wayne from Acme…") without a second round-trip.
     // `survey_lead` is the boolean derived from `survey_submitted_at` so
