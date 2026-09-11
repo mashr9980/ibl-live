@@ -786,7 +786,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
                   />
                 )}
 
-                {stage === 'ended' && <EndedStage identity={identity} />}
+                {stage === 'ended' && <EndedStage />}
               </div>
             </div>
 
@@ -1037,7 +1037,7 @@ function LiveControls({
   );
 }
 
-function EndedStage({ identity }: { identity: AgentIdentity }) {
+function EndedStage() {
   return (
     <div className="flex flex-1 items-center justify-center px-4 md:px-6 w-full">
       <div className="flex flex-col items-center gap-4 text-center">
