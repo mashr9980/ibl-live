@@ -67,8 +67,11 @@ export function buildSystemPrompt(
   chatHistoryBlock = '',
   realworldIntro = '',
 ): string {
-  let out = spliceIntroAfterPersonaHeading(persona, realworldIntro);
+  // The persona first and unchanged, so OpenAI's prompt cache keeps the long
+  // stable prefix; the parts that vary per session or per day come last.
+  let out = persona;
   if (leadBlock) out = `${out}\n\n---\n\n${leadBlock}`;
   if (chatHistoryBlock) out = `${out}\n\n---\n\n${chatHistoryBlock}`;
+  if (realworldIntro) out = `${out}\n\n---\n\n${realworldIntro}`;
   return out;
 }

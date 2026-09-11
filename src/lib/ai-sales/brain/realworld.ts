@@ -101,7 +101,33 @@ async function fetchWeather(): Promise<{ temperatureF: number; condition: string
  *   full:      "Today is Monday, July 27, 2026, and the weather in New York is 74°F and clear."
  *   date-only: "Today is Monday, July 27, 2026 in New York."
  */
+// One weather lookup every ten minutes, refreshed in the background: a turn
+// never waits on Open-Meteo. Before the first result the intro is date-only.
+const INTRO_TTL_MS = 10 * 60_000;
+let cachedIntro: { text: string; at: number } | null = null;
+let refreshing: Promise<void> | null = null;
+
 export async function buildRealworldContextIntro(): Promise<string> {
+  const fresh = cachedIntro && Date.now() - cachedIntro.at < INTRO_TTL_MS;
+  if (!fresh && !refreshing) {
+    refreshing = fetchRealworldContextIntro()
+      .then((text) => {
+        cachedIntro = { text, at: Date.now() };
+      })
+      .catch(() => {})
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  if (cachedIntro) return cachedIntro.text;
+  try {
+    return `Today is ${formatDateToday()} in New York.`;
+  } catch {
+    return '';
+  }
+}
+
+async function fetchRealworldContextIntro(): Promise<string> {
   let dateStr: string;
   try {
     dateStr = formatDateToday();

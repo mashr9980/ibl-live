@@ -29,15 +29,17 @@ describe('prompt assembly', () => {
     expect(out).toBe('## 2. PERSONA\n\nIntro.\n\nBody.');
   });
 
-  it('orders sections persona → lead → history with --- separators', () => {
+  it('orders sections persona → lead → history → today, with --- separators', () => {
     const out = buildSystemPrompt(
       '# Persona\nBody.',
       '## Lead info\nx',
       '## Chat History\ny',
       'Intro.',
     );
+    // The persona stays first and byte-identical across turns so the model's
+    // prompt cache keeps it; the changing intro comes last.
     expect(out).toBe(
-      '# Persona\n\nIntro.\n\nBody.\n\n---\n\n## Lead info\nx\n\n---\n\n## Chat History\ny',
+      '# Persona\nBody.\n\n---\n\n## Lead info\nx\n\n---\n\n## Chat History\ny\n\n---\n\nIntro.',
     );
   });
 

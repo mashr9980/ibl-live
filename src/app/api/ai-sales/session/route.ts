@@ -157,6 +157,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       language,
       context_id: contextId,
       ...(voiceId ? { voice_id: voiceId } : {}),
+      // Speech recognition provider (deepgram | assembly_ai | gladia | elevenlabs);
+      // unset = the account default.
+      ...(optionalEnv('AI_SALES_STT_PROVIDER') ? { stt_config: { provider: optionalEnv('AI_SALES_STT_PROVIDER') } } : {}),
     },
     // Points the session's brain at this app's /api/chat/completions.
     // Omitted when unset — the session then uses the account default.
