@@ -20,7 +20,7 @@
  * configured lead resolver and builds a context-aware opening line carried
  * on the session JWT as
  * `${opening_intro}`. The LiveKit agent substitutes it into
- * Context.opening_text at dispatch, so Wayne's first spoken line is lead-
+ * Context.opening_text at dispatch, so the guide's first spoken line is lead-
  * aware. On DISCONNECTED we POST the transcript to
  * `/api/ai-sales/session-end` for summary → Notion → Slack fan-out.
  */
@@ -55,7 +55,7 @@ type AvatarTurnState = {
 
 // ~44 chars/sec — midway between the earlier 67 chars/sec (raced ahead of
 // audio in long bursts) and the slower 22 chars/sec (lagged noticeably
-// behind Wayne's TTS). At this rate captions sit just ahead of audio.
+// behind the avatar's TTS). At this rate captions sit just ahead of audio.
 const REVEAL_CHARS_PER_TICK = 2;
 const REVEAL_TICK_MS = 45;
 
@@ -245,7 +245,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
   }, [sessionState, sessionRef]);
 
   // Typewriter-paced reveal. Chunks arrive in LLM-token bursts that would
-  // otherwise outrun Wayne's TTS; we drip text out at REVEAL_CHARS_PER_TICK
+  // otherwise outrun the avatar's TTS; we drip text out at REVEAL_CHARS_PER_TICK
   // / REVEAL_TICK_MS so captions stay just ahead of audio. Advances every
   // turn whose revealed cursor trails buffered text — which in practice is
   // only the most recent in-flight turn, but we don't special-case it.
@@ -435,7 +435,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
   const handleSetupSubmit = useCallback(() => {
     const name = formName.trim();
     const email = formEmail.trim();
-    if (!name || !email) return;
+    if (!name || (email && !/@/.test(email))) return;
     setHasUserGesture(true);
     setHasSetupComplete(true);
   }, [formName, formEmail]);
@@ -646,13 +646,12 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
       <div className="mx-auto max-w-6xl">
         <header className="mb-6 md:mb-8 text-center">
           <h1 className="font-semibold text-3xl md:text-5xl tracking-[-0.02em] bg-gradient-to-r from-white to-[#F1ECFA] bg-clip-text text-transparent">
-            Meet {identity.name}, the demo that sells itself
+            Meet {identity.name}, the live guide to {identity.product}
           </h1>
           <p className="mt-2 text-white/70 text-sm md:text-base max-w-2xl mx-auto">
-            {identity.product}&apos;s sales agent, built on {identity.product}.
+            A real-time avatar whose answers come from {identity.product}&apos;s own platform.
             <br />
-            He&apos;s read your inquiry, knows the product cold, and will follow up by email to get
-            you started.
+            Ask about the products, who uses them, and how to get started.
           </p>
         </header>
 
@@ -849,7 +848,7 @@ function SetupForm({
   errorMessage: string | null;
   identity: AgentIdentity;
 }) {
-  const canSubmit = name.trim().length > 0 && /@/.test(email.trim());
+  const canSubmit = name.trim().length > 0 && (email.trim() === '' || /@/.test(email.trim()));
   return (
     <div className="flex flex-1 items-center justify-center px-4 md:px-6 w-full">
       <form
@@ -862,8 +861,7 @@ function SetupForm({
         <div className="flex flex-col items-center gap-3">
           <h2 className="text-white text-2xl md:text-4xl font-semibold">Talk to {identity.name}</h2>
           <p className="text-white/70 text-sm md:text-base max-w-sm">
-            {identity.product}&apos;s AI sales rep. Drop your name and email and they&apos;ll take
-            it from there.
+            Tell me your name and we&apos;ll start. Email is optional.
           </p>
         </div>
         <div className="w-full flex flex-col gap-3">
@@ -880,7 +878,7 @@ function SetupForm({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Your work email"
+            placeholder="Your email (optional)"
             autoComplete="email"
             className="w-full rounded-lg bg-black/40 border border-white/10 focus:border-[#00C3FF] focus:outline-none text-white placeholder:text-white/30 px-4 py-3 text-base"
           />
@@ -894,7 +892,7 @@ function SetupForm({
               : 'bg-[rgba(0,195,255,0.4)] text-[#0E404F]/60 cursor-not-allowed'
           }`}
         >
-          Chat with Wayne
+          Talk to {identity.name}
         </button>
         {errorMessage && <p className="text-red-400 text-sm">{errorMessage}</p>}
       </form>

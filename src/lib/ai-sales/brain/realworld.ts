@@ -4,23 +4,23 @@ import 'server-only';
  * Real-world context intro, ported from the original Python implementation.
  *
  * One sentence (today's date + LA weather) spliced after the persona's
- * `# Persona` heading so Wayne can ground replies in wall-clock reality.
+ * `# Persona` heading so the guide can ground replies in wall-clock reality.
  * Date is local (LA tz, no network); weather is Open-Meteo's free endpoint
  * (no API key). Caching was intentionally dropped for the standalone port —
  * one 5s-timeout fetch per turn, graceful degrade to date-only on any
  * failure, empty string only if the date itself can't be formatted.
  */
 
-const LA_TZ = 'America/Los_Angeles';
+const NY_TZ = 'America/New_York';
 
 // Open-Meteo current-weather — no API key, public free tier.
 const OPEN_METEO_URL =
   'https://api.open-meteo.com/v1/forecast' +
-  '?latitude=34.0522' +
-  '&longitude=-118.2437' +
+  '?latitude=40.7128' +
+  '&longitude=-74.0060' +
   '&current=temperature_2m,weather_code' +
   '&temperature_unit=fahrenheit' +
-  '&timezone=America/Los_Angeles';
+  '&timezone=America/New_York';
 
 const WEATHER_TIMEOUT_MS = 5000;
 
@@ -60,7 +60,7 @@ const WMO_CODES: Record<number, string> = {
 // Python strftime "%A, %B %-d, %Y" → "Monday, July 27, 2026".
 function formatDateToday(): string {
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: LA_TZ,
+    timeZone: NY_TZ,
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -98,8 +98,8 @@ async function fetchWeather(): Promise<{ temperatureF: number; condition: string
 /**
  * Returns the one-sentence intro, or empty string if even the date can't be
  * formatted (caller then skips the splice).
- *   full:      "Today is Monday, July 27, 2026, and the weather in Los Angeles is 74°F and clear."
- *   date-only: "Today is Monday, July 27, 2026 in Los Angeles."
+ *   full:      "Today is Monday, July 27, 2026, and the weather in New York is 74°F and clear."
+ *   date-only: "Today is Monday, July 27, 2026 in New York."
  */
 export async function buildRealworldContextIntro(): Promise<string> {
   let dateStr: string;
@@ -111,6 +111,6 @@ export async function buildRealworldContextIntro(): Promise<string> {
   }
 
   const weather = await fetchWeather();
-  if (!weather) return `Today is ${dateStr} in Los Angeles.`;
-  return `Today is ${dateStr}, and the weather in Los Angeles is ${weather.temperatureF}°F and ${weather.condition}.`;
+  if (!weather) return `Today is ${dateStr} in New York.`;
+  return `Today is ${dateStr}, and the weather in New York is ${weather.temperatureF}°F and ${weather.condition}.`;
 }

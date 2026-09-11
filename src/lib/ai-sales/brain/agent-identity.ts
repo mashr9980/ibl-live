@@ -21,10 +21,10 @@ export type AgentIdentity = {
 };
 
 export const DEFAULT_AGENT_IDENTITY: AgentIdentity = {
-  name: 'Wayne',
-  role: 'Head of Business',
-  product: 'LiveAvatar',
-  company: 'HeyGen',
+  name: 'Ivy',
+  role: 'AI Guide',
+  product: 'ibl.ai',
+  company: 'ibl.ai',
 };
 
 function env(key: string, fallback: string): string {

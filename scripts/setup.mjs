@@ -55,9 +55,9 @@ const DEFAULT_AVATAR_ID = 'dd73ea75-1218-4ef3-92ce-606d5f7fbc0a';
 // timestamp, the same way SECRET_NAME does. Reaching this code at all means
 // .env.local had no AI_SALES_CONTEXT_ID, so a same-named context in the account
 // is one we can't safely adopt — a fresh, distinctly-named one is correct.
-const CONTEXT_NAME = 'liveavatar-sales-agent';
-const SECRET_NAME = 'liveavatar-sales-agent-brain';
-const LLM_CONFIG_NAME = 'liveavatar-sales-agent';
+const CONTEXT_NAME = 'ibl-live-guide';
+const SECRET_NAME = 'ibl-live-guide-brain';
+const LLM_CONFIG_NAME = 'ibl-live-guide';
 
 /** Local-time `MM/DD/YY - HH:MM`, appended to created resource names. */
 function nameStamp(now = new Date()) {
@@ -68,7 +68,7 @@ function nameStamp(now = new Date()) {
 
 // The model name is cosmetic — the real model is chosen inside this app's
 // /api/chat/completions. It only has to be non-empty.
-const LLM_MODEL_NAME = 'sales-agent';
+const LLM_MODEL_NAME = 'ibl-guide';
 
 // Spoken verbatim the moment the room connects, so it holds the placeholder
 // and nothing else — the app generates the whole greeting per visitor and
@@ -387,9 +387,9 @@ async function main() {
     info('signs the session id at mint so /api/ai-sales/session-end can reject');
     info('forged transcripts — without it the Notion/Slack fan-out is open to all');
   }
-  if (!env.ANTHROPIC_API_KEY) {
-    warn('ANTHROPIC_API_KEY is not set — the agent cannot think without it');
-    info('add it to .env.local by hand');
+  if (!env.IBLAI_API_KEY || !env.IBLAI_ORG) {
+    warn('IBLAI_API_KEY / IBLAI_ORG are not set — the guide cannot think without them');
+    info('add the ibl.ai Platform API Token and organization key to .env.local by hand');
   }
 
   writeEnvFile(updates);

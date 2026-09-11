@@ -1,34 +1,25 @@
 import 'server-only';
-import Anthropic from '@anthropic-ai/sdk';
+import { iblaiChat, type ChatMessage, type IblaiConfig } from './iblai';
 
 /**
- * Anthropic -> OpenAI Chat Completions SSE adapter.
+ * ibl.ai -> OpenAI Chat Completions SSE adapter.
  *
- * Ported from the original Python implementation. The LiveKit
- * voice agent speaks OpenAI's chat-completions dialect; Anthropic emits its
- * own event shapes, so we re-emit each text delta as an OpenAI
- * `chat.completion.chunk` SSE frame. The stream ALWAYS closes with
- * `data: [DONE]`; an error after the first frame is surfaced as a content
- * delta (never an HTTP error) so a mid-turn failure degrades gracefully in
- * the avatar instead of dropping the socket.
+ * LiveAvatar speaks OpenAI's chat-completions dialect and so does ibl.ai, but
+ * the frames are re-emitted rather than piped through: the stream then ALWAYS
+ * closes with `data: [DONE]`, an error after the first frame is surfaced as a
+ * content delta (never an HTTP error) so a mid-turn failure degrades
+ * gracefully in the avatar instead of dropping the socket, and the real model
+ * name never reaches the wire.
  */
 
-export const LLM_MODEL = 'claude-haiku-4-5';
-export const DEFAULT_MAX_TOKENS = 512;
+// Kept for callers; NOT sent upstream — ibl.ai answers "internal_error" to any
+// request carrying max_tokens (seen 2026-09-11), and the persona already caps
+// replies at 30 words.
+export const DEFAULT_MAX_TOKENS = 1024;
 
 export type ChatDelta = { role?: string; content?: string };
 
-// The whole system prompt (persona + lead + history, ~2.5K tokens) is rebuilt
-// every turn. Marking it ephemeral lets Anthropic serve later turns from
-// prompt cache at ~10% of base input price; turn 1 pays a 1.25x write
-// surcharge, net positive after turn 2.
-function systemBlocks(text: string): Anthropic.TextBlockParam[] {
-  return [{ type: 'text', text, cache_control: { type: 'ephemeral' } }];
-}
-
 export function chatId(): string {
-  // Python: `chatcmpl-{secrets.token_urlsafe(6)[:8]}` — 6 random bytes,
-  // url-safe base64, first 8 chars.
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return `chatcmpl-${Buffer.from(bytes).toString('base64url').slice(0, 8)}`;
@@ -53,49 +44,75 @@ export function sseLine(payload: unknown): string {
   return `data: ${JSON.stringify(payload)}\n\n`;
 }
 
-type StreamArgs = {
-  client: Anthropic;
+type CompletionArgs = {
+  config: IblaiConfig;
   systemPrompt: string;
-  messages: Anthropic.MessageParam[];
+  messages: ChatMessage[];
   modelLabel: string;
   maxTokens: number;
   temperature: number | null;
 };
 
+function requestBody(args: CompletionArgs, stream: boolean) {
+  return {
+    messages: [{ role: 'system' as const, content: args.systemPrompt }, ...args.messages],
+    stream,
+    ...(args.temperature !== null ? { temperature: args.temperature } : {}),
+  };
+}
+
+async function failureText(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  return `ibl.ai ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`;
+}
+
+/** Text deltas out of an OpenAI-style SSE body. */
+export async function* upstreamDeltas(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += decoder.decode(value, { stream: true });
+    let newline: number;
+    while ((newline = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') return;
+      let chunk: { choices?: { delta?: { content?: unknown } }[]; error?: { message?: string } };
+      try {
+        chunk = JSON.parse(payload);
+      } catch {
+        continue; // a partial or keep-alive line
+      }
+      // ibl.ai reports a failed turn as an error frame on a 200 stream.
+      if (chunk.error) throw new Error(`ibl.ai: ${chunk.error.message ?? 'upstream error'}`);
+      const text = chunk.choices?.[0]?.delta?.content;
+      if (typeof text === 'string' && text) yield text;
+    }
+  }
+}
+
 /**
- * Stream Anthropic text deltas as OpenAI `chat.completion.chunk` SSE frames.
- * Yields ready-to-write SSE strings; the route encodes them into the
- * ReadableStream. Always terminates with `data: [DONE]\n\n`.
+ * Stream ibl.ai text deltas as OpenAI `chat.completion.chunk` SSE frames.
+ * Yields ready-to-write SSE strings. Always terminates with `data: [DONE]`.
  */
-export async function* streamChatCompletion(args: StreamArgs): AsyncGenerator<string> {
-  const { client, systemPrompt, messages, modelLabel, maxTokens, temperature } = args;
+export async function* streamChatCompletion(args: CompletionArgs): AsyncGenerator<string> {
+  const { modelLabel } = args;
   const cid = chatId();
   try {
-    // Open the assistant role frame (no content) so the OpenAI client knows
-    // an assistant message is streaming.
     yield sseLine(openaiChunk(cid, modelLabel, { role: 'assistant', content: '' }));
-
-    const params: Anthropic.MessageStreamParams = {
-      model: LLM_MODEL,
-      max_tokens: maxTokens,
-      system: systemBlocks(systemPrompt),
-      messages,
-    };
-    if (temperature !== null) params.temperature = temperature;
-
-    const anthropicStream = client.messages.stream(params);
-    for await (const event of anthropicStream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        const text = event.delta.text || '';
-        if (text) yield sseLine(openaiChunk(cid, modelLabel, { content: text }));
-      }
+    const res = await iblaiChat(args.config, requestBody(args, true));
+    if (!res.ok || !res.body) throw new Error(await failureText(res));
+    for await (const text of upstreamDeltas(res.body)) {
+      yield sseLine(openaiChunk(cid, modelLabel, { content: text }));
     }
-
     yield sseLine(openaiChunk(cid, modelLabel, {}, 'stop'));
     yield 'data: [DONE]\n\n';
   } catch (err) {
-    // Error AFTER the stream opened: surface as a content delta, not an HTTP
-    // error — the socket is already committed.
     const message = err instanceof Error ? err.message : String(err);
     console.error('[ai-sales] stream failed', err);
     yield sseLine(openaiChunk(cid, modelLabel, { content: `\n[error: ${message}]` }, 'stop'));
@@ -103,35 +120,28 @@ export async function* streamChatCompletion(args: StreamArgs): AsyncGenerator<st
   }
 }
 
-type CompletionArgs = Omit<StreamArgs, never>;
-
-/** OpenAI-shaped non-streaming completion (tests + `stream:false` callers). */
-export async function nonStreamingCompletion(args: CompletionArgs) {
-  const { client, systemPrompt, messages, modelLabel, maxTokens, temperature } = args;
-  const params: Anthropic.MessageCreateParamsNonStreaming = {
-    model: LLM_MODEL,
-    max_tokens: maxTokens,
-    system: systemBlocks(systemPrompt),
-    messages,
+/** The answer text of a one-shot completion. */
+export async function completionText(args: CompletionArgs): Promise<string> {
+  const res = await iblaiChat(args.config, requestBody(args, false));
+  if (!res.ok) throw new Error(await failureText(res));
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: unknown } }[];
+    error?: { message?: string };
   };
-  if (temperature !== null) params.temperature = temperature;
+  if (data.error) throw new Error(`ibl.ai: ${data.error.message ?? 'upstream error'}`);
+  const text = data.choices?.[0]?.message?.content;
+  return typeof text === 'string' ? text : '';
+}
 
-  const response = await client.messages.create(params);
-  const text = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
-
-  const inputTokens = response.usage?.input_tokens ?? 0;
-  const outputTokens = response.usage?.output_tokens ?? 0;
-
+/** OpenAI-shaped non-streaming completion (`stream:false` callers). */
+export async function nonStreamingCompletion(args: CompletionArgs) {
+  const text = await completionText(args);
   return {
     id: chatId(),
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
-    model: modelLabel,
+    model: args.modelLabel,
     choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }],
-    usage: {
-      prompt_tokens: inputTokens,
-      completion_tokens: outputTokens,
-      total_tokens: inputTokens + outputTokens,
-    },
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
   };
 }

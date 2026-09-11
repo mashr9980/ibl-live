@@ -170,7 +170,7 @@ describe('bundled parts', () => {
     // The prompt assembler splices the realworld intro after this heading.
     expect(prompt).toMatch(/^#+\s*(?:\d+\.\s*)?PERSONA\b/im);
     // Published pricing stays…
-    expect(prompt).toContain('$475/month');
+    expect(prompt).toContain('15,000 dollars');
     // …internal commercial material must not.
     for (const leak of [
       'One Call Deals',
@@ -198,7 +198,7 @@ describe('bundled parts', () => {
 
 describe('agent identity', () => {
   it('defaults, then reads env overrides', () => {
-    expect(agentIdentity().name).toBe('Wayne');
+    expect(agentIdentity().name).toBe('Ivy');
     process.env.AI_SALES_AGENT_NAME = 'Ada';
     process.env.AI_SALES_AGENT_ROLE = 'Head of Widgets';
     expect(agentIdentity()).toMatchObject({ name: 'Ada', role: 'Head of Widgets' });

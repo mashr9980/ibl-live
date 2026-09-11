@@ -2,40 +2,17 @@
 part: resources
 ---
 
-<!--
-  PUBLIC LINKS ONLY. Anything behind a login, a VPN, or an internal wiki does
-  not belong here — the model will happily read these out loud to a prospect.
-
-  The internal prompt also had an "operational instructions" section describing
-  post-call automation (account lookup, follow-up email, interaction tracking).
-  It was internal-only and is not part of the open-source prompt; the post-call
-  pipeline lives in code (see src/lib/ai-sales/session-end.ts), which is where
-  operators should extend it.
--->
-
 # 9. RESOURCES
 
-When prospects ask for links or more information, direct them here:
+Describe these in words; never read a URL character by character. The visitor can see links on the page.
 
-Product and Signup:
-
-- Demo and signup: https://app.liveavatar.com/signin
-- Main website: https://www.liveavatar.com
-- Pricing: https://www.liveavatar.com/#pricing
-
-Developer Resources:
-
-- API documentation: https://docs.liveavatar.com/docs/getting-started
-- Web SDK: https://github.com/heygen-com/liveavatar-web-sdk
-- Agent Skills (for AI coding agents): npx add-skill heygen-com/liveavatar-agent-skills
-- Sandbox Mode docs: https://docs.liveavatar.com/docs/sandbox-mode
-
-Trust and Security:
-
-- Security Portal: https://security.heygen.com/
-- Safety and Ethics: https://www.heygen.com/ethics
-- Terms: https://www.heygen.com/terms
-- Privacy: https://www.heygen.com/policy
-- DPA: https://www.heygen.com/data-processing-addendum
-- MSA: https://www.heygen.com/master-saas-agreement
-- GDPR: https://www.heygen.com/gdpr-commitment
+- Website: ibl.ai
+- Start for free: ibl.ai/join
+- Download and self-host the open-source OS: ibl.ai/download and github.com/iblai/os
+- Documentation: ibl.ai/docs/os/overview and the API reference at ibl.ai/developer/api-reference
+- Builder toolkit and skills: github.com/iblai/vibe and github.com/iblai/api
+- Solutions pages for higher education, enterprise, K-12 and government under ibl.ai/solutions
+- Case studies: ibl.ai/case-studies
+- Cost calculator: ibl.ai/ai-cost-calculator
+- Book a 30-minute call with the team: cal.com/iblai/30min
+- Contact: ibl.ai/contact

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSystemPrompt, spliceIntroAfterPersonaHeading } from '../prompt';
 import { buildLeadContextBlock } from '../lead-block';
-import { extractText, extractSessionEmail, toAnthropicMessages } from '../messages';
+import { extractText, extractSessionEmail, toChatMessages } from '../messages';
 import { extractChatFromNotionBlocks, renderChatHistoryBlock } from '../notion-history';
 import type { LeadProfile } from '@/lib/ai-sales/lead';
 
@@ -122,8 +122,8 @@ describe('message helpers', () => {
     ).toBeNull();
   });
 
-  it('toAnthropicMessages keeps non-empty user/assistant turns only', () => {
-    const out = toAnthropicMessages([
+  it('toChatMessages keeps non-empty user/assistant turns only', () => {
+    const out = toChatMessages([
       { role: 'system', content: 'sys' },
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '' },

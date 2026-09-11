@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 export function generateMetadata(): Metadata {
   const { name, product } = agentIdentity();
   const title = `Talk to ${name} — ${product}`;
-  const description = `Ask ${product}'s live AI sales agent anything about the product, pricing, and integration.`;
+  const description = `Ask ${product}'s live AI guide anything about the platform, the products, and how to get started.`;
   return { title, description, openGraph: { title, description } };
 }
 

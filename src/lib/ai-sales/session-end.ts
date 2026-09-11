@@ -1,12 +1,12 @@
 import 'server-only';
-import Anthropic from '@anthropic-ai/sdk';
+import { iblaiConfig } from './brain/iblai';
+import { completionText } from './brain/streaming';
 import type { LeadProfile } from './lead';
 import { agentIdentity } from './brain/agent-identity';
 
 // Max chars we'll hand to the summarizer. Typical Wayne sessions run <5 min,
 // so ~200 turns at ~80 chars is plenty — we cap defensively.
 const TRANSCRIPT_CHAR_BUDGET = 18_000;
-const SUMMARY_MODEL = 'claude-haiku-4-5';
 
 export type TranscriptTurn = {
   sender: 'user' | 'avatar';
@@ -19,7 +19,7 @@ export function formatTranscript(turns: TranscriptTurn[]): string {
   const lines: string[] = [];
   let used = 0;
   for (const turn of turns) {
-    const who = turn.sender === 'user' ? 'Visitor' : 'Wayne';
+    const who = turn.sender === 'user' ? 'Visitor' : agentIdentity().name;
     const text = turn.message.trim();
     if (!text) continue;
     const line = `${who}: ${text}`;
@@ -120,9 +120,9 @@ export async function generateSummary(
   // summary on it.
   personaPrompt: string | null,
 ): Promise<SessionDigest> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { ...FALLBACK_DIGEST, tldr: 'ANTHROPIC_API_KEY not configured.' };
+  const config = iblaiConfig();
+  if (!config) {
+    return { ...FALLBACK_DIGEST, tldr: 'IBLAI_API_KEY / IBLAI_ORG not configured.' };
   }
   if (!transcript || transcript === '(no dialogue captured)') {
     return {
@@ -153,7 +153,7 @@ ${personaPrompt}
     : 'Qualified | Disqualified | Unknown — apply the baseline judgment criteria above. Use Unknown only when the transcript is too thin to judge.';
 
   const identity = agentIdentity();
-  const system = `You are a concise sales-ops assistant. A visitor just finished a conversation with ${identity.name}, ${identity.product}'s AI sales rep. Produce a structured handoff for the human sales team.
+  const system = `You are a concise assistant. A visitor just finished a conversation with ${identity.name}, ${identity.product}'s live AI guide. Produce a structured handoff for the human sales team.
 
 ${qualificationGuidance}
 
@@ -168,17 +168,16 @@ Respond with ONLY a single JSON object — no prose before or after, no markdown
 
 Be specific — cite what the visitor actually said. Don't hallucinate budgets or commitments not in the transcript. When the qualification signals are ambiguous, default to Disqualified and mention the missing signal in the summary so the sales team can probe on follow-up.`;
 
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
-    model: SUMMARY_MODEL,
-    max_tokens: 1000,
-    system,
-    messages: [{ role: 'user', content: `${leadBlock}\n\nTranscript:\n${transcript}` }],
-  });
-  const raw = response.content
-    .map((c) => (c.type === 'text' ? c.text : ''))
-    .join('')
-    .trim();
+  const raw = (
+    await completionText({
+      config,
+      systemPrompt: system,
+      messages: [{ role: 'user', content: `${leadBlock}\n\nTranscript:\n${transcript}` }],
+      modelLabel: 'ibl-guide-summary',
+      maxTokens: 1000,
+      temperature: null,
+    })
+  ).trim();
 
   const json = extractFirstJsonObject(raw);
   if (!json) {

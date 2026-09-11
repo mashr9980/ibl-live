@@ -1,5 +1,5 @@
 import 'server-only';
-import type Anthropic from '@anthropic-ai/sdk';
+import type { ChatMessage } from './iblai';
 
 /**
  * OpenAI chat-completions request shapes + message helpers, ported from the
@@ -49,12 +49,12 @@ export function extractSessionEmail(messages: OpenAIMessage[]): string | null {
 }
 
 /**
- * Keep only user/assistant turns with non-empty text → Anthropic messages.
+ * Keep only user/assistant turns with non-empty text → chat messages.
  * System messages (incl. the SESSION_EMAIL marker) are dropped — the real
  * system prompt is assembled separately and passed in the `system` field.
  */
-export function toAnthropicMessages(messages: OpenAIMessage[]): Anthropic.MessageParam[] {
-  const out: Anthropic.MessageParam[] = [];
+export function toChatMessages(messages: OpenAIMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
   for (const msg of messages) {
     if (msg.role !== 'user' && msg.role !== 'assistant') continue;
     const text = extractText(msg.content).trim();

@@ -1,5 +1,5 @@
 {
-  "name": "liveavatar-sales-agent",
+  "name": "ibl-live",
   "version": "0.1.0",
   "description": "An open-source, self-hostable AI sales agent built on the LiveAvatar platform.",
   "license": "MIT",
@@ -22,7 +22,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.89.0",
     "@heygen/liveavatar-web-sdk": "0.0.18",
     "ahooks": "3.9.5",
     "next": "15.4.10",

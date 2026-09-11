@@ -1,35 +1,32 @@
-# LiveAvatar Sales Agent
+# ibl.ai live guide
 
-An open-source, self-hostable **AI sales agent** ("Wayne") built on the
-[LiveAvatar](https://liveavatar.com) platform. A single Next.js app: a
-real-time interactive avatar that talks to visitors, qualifies leads, and
-writes them to your CRM.
-
-Deploy it to Vercel with a LiveAvatar API key and a handful of env vars.
+A real-time AI avatar that answers visitors' questions about [ibl.ai](https://ibl.ai):
+the face and voice are HeyGen's [LiveAvatar](https://liveavatar.com), the brain
+is ibl.ai's own platform. Built from HeyGen's open-source
+[liveavatar-sales-agent](https://github.com/heygen-com/liveavatar-sales-agent)
+(MIT), with the persona, the brain and the copy replaced.
 
 ## What's in the box
 
 - **Real-time avatar session** — browser ↔ LiveKit via `@heygen/liveavatar-web-sdk`.
 - **The brain** (`/api/chat/completions`) — an OpenAI-compatible endpoint the
-  avatar's LiveKit agent calls each turn. Assembles a persona + real-world
-  context (date/weather) + optional lead profile + optional CRM history, then
-  streams Anthropic as OpenAI-shaped SSE.
-- **Session close** (`/api/ai-sales/session-end`) — optional Anthropic summary
-  → Notion CRM upsert → Slack notification.
-- **Optional integrations**, all env-gated: Notion, Slack, and lead enrichment
-  via a swappable `LeadResolver`. Leave the env var blank to disable.
+  avatar calls each turn. Assembles the ibl.ai persona (prompt parts) plus
+  today's date and optional visitor context, then streams ibl.ai's
+  OpenAI-compatible chat endpoint back as OpenAI-shaped SSE.
+- **Session close** (`/api/ai-sales/session-end`) — optional summary through
+  ibl.ai → Notion → Slack. All env-gated; leave blank to skip.
 
 ## Quick start
 
 ```bash
 # 1. Install (Node >= 22)
-npm install          # or pnpm install / yarn
+npm install
 
 # 2. Provision your LiveAvatar account and write .env.local
-npm run setup        # asks for your API key, then provisions what's missing
+npm run setup        # asks for your LiveAvatar API key, then provisions what's missing
 
-# 3. Add your Anthropic key to .env.local
-#    ANTHROPIC_API_KEY=sk-ant-...
+# 3. Add the ibl.ai brain to .env.local
+#    IBLAI_API_KEY=<Platform API Token>   IBLAI_ORG=<organization key>
 
 # 4. Run (port 3003)
 npm run dev
@@ -37,18 +34,8 @@ npm run dev
 
 `npm run setup` picks an avatar, creates the context that supplies the opening
 line, and generates the local signing secret. Connecting the brain needs a URL
-LiveAvatar can reach, so re-run with
-`--url https://your-deployment.example.com` once you've deployed — see
-[Connecting the brain](#connecting-the-brain). Until then the avatar talks
-using your account's default LLM rather than this app's prompt.
-
-Anything already set in `.env.local` is reused, so re-running is safe.
-
-Stuck? [`docs/PROVISIONING.md`](docs/PROVISIONING.md) covers the whole path
-end to end, including a troubleshooting table for the failure modes that are
-hard to diagnose from the symptom alone.
-
-Open http://localhost:3003.
+LiveAvatar can reach, so re-run with `--url https://<your deployment>` once
+deployed; until then the avatar answers with the account's default LLM.
 
 ## Deploy to Vercel
 
@@ -108,13 +95,15 @@ fills all of this in; the API key is the only value it can't invent.
 avatar still connects and greets people, but answers come from your account's
 default LLM rather than this app's prompt.
 
-| Var                           | Required | Purpose                                                           |
-| ----------------------------- | -------- | ----------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`           | ✅       | Powers the conversation and the session-end summary               |
-| `AI_SALES_LLM_CONFIG_API_KEY` | ✅       | Protects this app's `/api/chat/completions` — see below           |
-| `LLM_CONFIGURATION_ID`        | —        | Routes each turn to this app's brain; blank = account default LLM |
-| `PROMPT_PARTS_DIR`            | —        | Override the bundled prompt-parts directory                       |
-| `AI_SALES_LEAD_RESOLVER`      | —        | Lead-enrichment implementation; blank = no-op stub, no lookups    |
+| Var                           | Required | Purpose                                                              |
+| ----------------------------- | -------- | -------------------------------------------------------------------- |
+| `IBLAI_API_KEY` / `IBLAI_ORG` | ✅       | ibl.ai Platform API Token and organization key: the brain            |
+| `IBLAI_MODEL`                 | —        | `provider/model` on the platform (default `google/gemini-3.5-flash`) |
+| `IBLAI_ASGI_URL`              | —        | Streaming host; only for self-hosted ibl.ai                          |
+| `AI_SALES_LLM_CONFIG_API_KEY` | ✅       | Protects this app's `/api/chat/completions` — see below              |
+| `LLM_CONFIGURATION_ID`        | —        | Routes each turn to this app's brain; blank = account default LLM    |
+| `PROMPT_PARTS_DIR`            | —        | Override the bundled prompt-parts directory                          |
+| `AI_SALES_LEAD_RESOLVER`      | —        | Lead-enrichment implementation; blank = no-op stub, no lookups       |
 
 **3. After the call** — summary fan-out on disconnect. Both integrations are
 independent; leave either blank to skip it.
@@ -200,7 +189,7 @@ retry button.
 
 ## After the call
 
-When a session disconnects, the app summarizes the transcript with Anthropic
+When a session disconnects, the app summarizes the transcript through ibl.ai
 and fans the result out to Notion and Slack. Both are optional and independent
 — leave either set of env vars blank and that half is skipped silently.
 

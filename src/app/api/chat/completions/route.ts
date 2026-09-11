@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { clientIp, isValidLlmCaller, makeRateLimiter } from '@/lib/ai-sales/session-auth';
 import {
   extractSessionEmail,
-  toAnthropicMessages,
+  toChatMessages,
   type OpenAIChatRequest,
 } from '@/lib/ai-sales/brain/messages';
+import { iblaiConfig } from '@/lib/ai-sales/brain/iblai';
 import { loadPersona } from '@/lib/ai-sales/brain/persona';
 import { buildRealworldContextIntro } from '@/lib/ai-sales/brain/realworld';
 import { fetchLead } from '@/lib/ai-sales/brain/lead-client';
@@ -26,7 +26,7 @@ import {
  *
  * Flow: auth → parse → extract SESSION_EMAIL → assemble the system prompt
  * (persona + realworld + lead + Notion history, concurrent, best-effort) →
- * stream Anthropic as OpenAI SSE (default) or return a JSON completion.
+ * stream ibl.ai as OpenAI SSE (default) or return a JSON completion.
  */
 
 export const runtime = 'nodejs'; // persona.ts reads prompt-parts/*.md via fs
@@ -73,9 +73,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       return jsonError('messages[] required', 400);
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return jsonError('ANTHROPIC_API_KEY is not configured', 500);
+    const config = iblaiConfig();
+    if (!config) {
+      return jsonError('IBLAI_API_KEY and IBLAI_ORG are not configured', 500);
     }
 
     // 3. Assemble the system prompt. The persona (prompt-parts/*.md) is fatal
@@ -99,16 +99,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     const leadBlock = email ? buildLeadContextBlock(lead) : '';
     const systemPrompt = buildSystemPrompt(persona, leadBlock, historyBlock, realworldIntro);
 
-    // 4. Anthropic messages — user/assistant only, "Hello." fallback if empty.
-    const messages = toAnthropicMessages(body.messages);
+    // 4. Chat messages — user/assistant only, "Hello." fallback if empty.
+    const messages = toChatMessages(body.messages);
     if (messages.length === 0) {
       messages.push({ role: 'user', content: 'Hello.' });
     }
 
-    const client = new Anthropic({ apiKey });
-    const modelLabel = body.model || 'wayne-la-sales'; // real model never on wire
+    const modelLabel = body.model || 'ibl-guide'; // real model never on wire
     // Guard caller input — a negative max_tokens or out-of-range temperature
-    // would be rejected by Anthropic. Only the trusted internal caller reaches
+    // would be rejected upstream. Only the trusted internal caller reaches
     // here, but the guards are cheap.
     const maxTokens =
       typeof body.max_tokens === 'number' && body.max_tokens > 0
@@ -122,7 +121,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     // 5a. Non-streaming path — only an explicit `stream:false` opts out.
     if (body.stream === false) {
       const completion = await nonStreamingCompletion({
-        client,
+        config,
         systemPrompt,
         messages,
         modelLabel,
@@ -137,7 +136,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     // as a content delta), so they don't reach the catch below.
     const encoder = new TextEncoder();
     const generator = streamChatCompletion({
-      client,
+      config,
       systemPrompt,
       messages,
       modelLabel,
@@ -166,7 +165,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       },
     });
   } catch (err) {
-    // Anything unexpected (e.g. an Anthropic API error on the non-streaming
+    // Anything unexpected (e.g. an ibl.ai API error on the non-streaming
     // path, or a throw during prompt assembly) lands here — log the full
     // error + stack so a 500 is never opaque, then return a structured 500.
     console.error('[ai-sales] chat/completions unhandled error', err);
