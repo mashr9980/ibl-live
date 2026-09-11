@@ -154,7 +154,7 @@ describe('iblaiConfig', () => {
     expect(iblaiConfig()).toMatchObject({
       provider: 'openai',
       chatUrl: OPENAI_CHAT_URL,
-      model: 'gpt-4.1-mini',
+      model: 'gpt-4.1',
     });
     delete process.env.OPENAI_API_KEY;
     expect(iblaiConfig()).toMatchObject({ provider: 'iblai', org: 'org1' });
