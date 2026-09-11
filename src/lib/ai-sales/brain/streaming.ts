@@ -19,6 +19,10 @@ export const DEFAULT_MAX_TOKENS = 1024;
 
 export type ChatDelta = { role?: string; content?: string };
 
+/** Spoken aloud when ibl.ai cannot answer; the real reason goes to the server log. */
+export const SPOKEN_FALLBACK =
+  "Sorry, I can't reach my knowledge right now. Please try again in a moment, or book a call with the team from the link on this page.";
+
 export function chatId(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
@@ -113,9 +117,8 @@ export async function* streamChatCompletion(args: CompletionArgs): AsyncGenerato
     yield sseLine(openaiChunk(cid, modelLabel, {}, 'stop'));
     yield 'data: [DONE]\n\n';
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     console.error('[ai-sales] stream failed', err);
-    yield sseLine(openaiChunk(cid, modelLabel, { content: `\n[error: ${message}]` }, 'stop'));
+    yield sseLine(openaiChunk(cid, modelLabel, { content: SPOKEN_FALLBACK }, 'stop'));
     yield 'data: [DONE]\n\n';
   }
 }

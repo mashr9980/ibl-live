@@ -161,6 +161,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Points the session's brain at this app's /api/chat/completions.
     // Omitted when unset — the session then uses the account default.
     ...(llmConfigurationId ? { llm_configuration_id: llmConfigurationId } : {}),
+    // Sandbox sessions cost no credits: only the public Wayne avatar, about a
+    // minute long. For wiring checks, never for visitors.
+    ...(optionalEnv('AI_SALES_SANDBOX') === '1' ? { is_sandbox: true } : {}),
     dynamic_variables: dynamicVariables,
   };
 

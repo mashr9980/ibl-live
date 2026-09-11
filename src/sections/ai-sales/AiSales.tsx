@@ -345,8 +345,8 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
 
     interrupt();
     repeat(
-      "We've got about two minutes left — let me wrap up by sharing the key takeaways, " +
-        "and I'll follow up with you over email afterward.",
+      "We've got about two minutes left, so let me wrap up with the key points. " +
+        'You can always continue on the website or book a call with the team.',
     );
   }, [sessionState, targetDate, remainingSeconds, interrupt, repeat]);
 
@@ -1039,8 +1039,8 @@ function EndedStage({ identity }: { identity: AgentIdentity }) {
           Thanks for chatting
         </p>
         <p className="text-white/80 text-base md:text-lg max-w-md">
-          Hope you got all questions cleared, {identity.name} will follow up with you in email
-          shortly.
+          Hope that helped. Start for free at ibl.ai/join, or book a 30-minute call with the team at
+          cal.com/iblai/30min.
         </p>
       </div>
     </div>

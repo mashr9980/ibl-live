@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { completionText, streamChatCompletion, upstreamDeltas } from '../streaming';
+import {
+  completionText,
+  SPOKEN_FALLBACK,
+  streamChatCompletion,
+  upstreamDeltas,
+} from '../streaming';
 import type { IblaiConfig } from '../iblai';
 
 const config: IblaiConfig = {
@@ -87,12 +92,13 @@ describe('streamChatCompletion', () => {
     expect(chunks.every((c) => c.model === 'ibl-guide')).toBe(true);
   });
 
-  it('surfaces an upstream failure as a spoken-safe content delta and still closes the stream', async () => {
+  it('speaks a friendly fallback on an upstream failure and still closes the stream', async () => {
     vi.stubGlobal('fetch', async () => new Response('boom', { status: 502 }));
     const frames: string[] = [];
     for await (const f of streamChatCompletion(args)) frames.push(f);
     expect(frames.at(-1)).toBe('data: [DONE]\n\n');
-    expect(frames.some((f) => f.includes('[error: ibl.ai 502: boom]'))).toBe(true);
+    expect(frames.some((f) => f.includes(SPOKEN_FALLBACK))).toBe(true);
+    expect(frames.some((f) => f.includes('boom'))).toBe(false);
   });
 });
 
@@ -113,7 +119,7 @@ describe('streamChatCompletion error frames', () => {
     const frames: string[] = [];
     for await (const f of streamChatCompletion(args)) frames.push(f);
     expect(frames.some((f) => f.includes('Hello'))).toBe(true);
-    expect(frames.some((f) => f.includes('[error: ibl.ai: model unavailable]'))).toBe(true);
+    expect(frames.some((f) => f.includes(SPOKEN_FALLBACK))).toBe(true);
     expect(frames.at(-1)).toBe('data: [DONE]\n\n');
   });
 });
