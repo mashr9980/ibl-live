@@ -75,7 +75,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     const config = iblaiConfig();
     if (!config) {
-      return jsonError('IBLAI_API_KEY and IBLAI_ORG are not configured', 500);
+      return jsonError(
+        'no brain configured: set OPENAI_API_KEY, or IBLAI_API_KEY and IBLAI_ORG',
+        500,
+      );
     }
 
     // 3. Assemble the system prompt. The persona (prompt-parts/*.md) is fatal

@@ -340,15 +340,21 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
     if (sessionState !== SessionState.CONNECTED) return;
     if (!targetDate) return;
     if (timeWarningSentRef.current) return;
-    if (remainingSeconds <= 0 || remainingSeconds > TIME_WARNING_THRESHOLD_SEC) return;
+    // Short caps (sandbox is 60 s, small free tiers) warn at a quarter of the
+    // session instead of two minutes, or the wrap-up would fire at the start.
+    const warnAt = Math.min(
+      TIME_WARNING_THRESHOLD_SEC,
+      Math.max(10, Math.floor((maxSessionDuration ?? 600) / 4)),
+    );
+    if (remainingSeconds <= 0 || remainingSeconds > warnAt) return;
     timeWarningSentRef.current = true;
 
     interrupt();
     repeat(
-      "We've got about two minutes left, so let me wrap up with the key points. " +
+      "We're almost out of time, so let me wrap up with the key points. " +
         'You can always continue on the website or book a call with the team.',
     );
-  }, [sessionState, targetDate, remainingSeconds, interrupt, repeat]);
+  }, [sessionState, targetDate, remainingSeconds, maxSessionDuration, interrupt, repeat]);
 
   // Hydrate the cached resolved-lead chrome (first_name / company) once we
   // know the email, so ConnectingStage can show "Welcoming Wayne from Acme"

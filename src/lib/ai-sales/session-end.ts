@@ -122,7 +122,10 @@ export async function generateSummary(
 ): Promise<SessionDigest> {
   const config = iblaiConfig();
   if (!config) {
-    return { ...FALLBACK_DIGEST, tldr: 'IBLAI_API_KEY / IBLAI_ORG not configured.' };
+    return {
+      ...FALLBACK_DIGEST,
+      tldr: 'No brain configured (OPENAI_API_KEY or IBLAI_API_KEY / IBLAI_ORG).',
+    };
   }
   if (!transcript || transcript === '(no dialogue captured)') {
     return {

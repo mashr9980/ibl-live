@@ -6,9 +6,10 @@ import {
   streamChatCompletion,
   upstreamDeltas,
 } from '../streaming';
-import type { IblaiConfig } from '../iblai';
+import { iblaiConfig, OPENAI_CHAT_URL, type IblaiConfig } from '../iblai';
 
 const config: IblaiConfig = {
+  provider: 'iblai',
   apiKey: 'token',
   org: 'org1',
   model: 'google/gemini-3.1-flash-lite',
@@ -136,5 +137,28 @@ describe('completionText', () => {
   it('throws with the status on failure', async () => {
     vi.stubGlobal('fetch', async () => new Response('nope', { status: 401 }));
     await expect(completionText(args)).rejects.toThrow('ibl.ai 401: nope');
+  });
+});
+
+describe('iblaiConfig', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('prefers OpenAI when OPENAI_API_KEY is set, else ibl.ai, else nothing', () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.IBLAI_API_KEY = 'tok';
+    process.env.IBLAI_ORG = 'org1';
+    expect(iblaiConfig()).toMatchObject({
+      provider: 'openai',
+      chatUrl: OPENAI_CHAT_URL,
+      model: 'gpt-4.1-mini',
+    });
+    delete process.env.OPENAI_API_KEY;
+    expect(iblaiConfig()).toMatchObject({ provider: 'iblai', org: 'org1' });
+    expect(iblaiConfig()?.chatUrl).toContain('/orgs/org1/v1/chat/completions');
+    delete process.env.IBLAI_ORG;
+    expect(iblaiConfig()).toBeNull();
   });
 });
