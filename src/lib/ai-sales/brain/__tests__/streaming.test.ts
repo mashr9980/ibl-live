@@ -79,6 +79,7 @@ describe('streamChatCompletion', () => {
     expect(sent.model).toBe('google/gemini-3.1-flash-lite');
     expect(sent.stream).toBe(true);
     expect(sent).not.toHaveProperty('max_tokens');
+    expect(sent.temperature).toBe(0.2);
     expect(sent.messages[0]).toEqual({ role: 'system', content: 'You are a guide.' });
     expect(sent.messages[1]).toEqual({ role: 'user', content: 'What is ibl.ai?' });
 

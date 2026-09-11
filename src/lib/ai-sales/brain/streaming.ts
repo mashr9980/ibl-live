@@ -16,6 +16,7 @@ import { iblaiChat, type ChatMessage, type IblaiConfig } from './iblai';
 // request carrying max_tokens (seen 2026-09-11), and the persona already caps
 // replies at 30 words.
 export const DEFAULT_MAX_TOKENS = 1024;
+export const DEFAULT_TEMPERATURE = 0.2;
 
 export type ChatDelta = { role?: string; content?: string };
 
@@ -61,7 +62,8 @@ function requestBody(args: CompletionArgs, stream: boolean) {
   return {
     messages: [{ role: 'system' as const, content: args.systemPrompt }, ...args.messages],
     stream,
-    ...(args.temperature !== null ? { temperature: args.temperature } : {}),
+    // Low by default: this is a factual guide, not a storyteller.
+    temperature: args.temperature !== null ? args.temperature : DEFAULT_TEMPERATURE,
   };
 }
 

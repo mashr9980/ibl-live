@@ -20,7 +20,7 @@ export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 
 export const DEFAULT_IBLAI_MODEL = 'google/gemini-3.1-flash-lite';
 export const DEFAULT_IBLAI_ASGI_URL = 'https://asgi.data.iblai.app';
-export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
+export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
 export const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
 
 /** Null until a brain is configured: OPENAI_API_KEY, or IBLAI_API_KEY + IBLAI_ORG. */

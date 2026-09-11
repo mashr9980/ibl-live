@@ -39,12 +39,36 @@ deployed; until then the avatar answers with the account's default LLM.
 
 ## Deploy to Vercel
 
-1. Push this repo to your Git provider and import it in Vercel.
-2. Framework preset: **Next.js**. No monorepo/root-directory config needed —
-   this is a standalone app.
-3. Add the env vars from `.env.example` in **Project → Settings →
-   Environment Variables** (all environments).
-4. Deploy.
+1. Push this repo to GitHub and import it in Vercel (framework: Next.js, no
+   build settings to change).
+2. In the Vercel project, Settings → Environment Variables, add every
+   non-empty value from your local `.env.local` **except** `AI_SALES_SANDBOX`
+   (leave it unset in production) and set `AI_SALES_MAX_SESSION_DURATION`
+   to what your LiveAvatar tier allows (free tier: `120`).
+3. Deploy. Note the production URL, for example `https://ibl-live.vercel.app`.
+4. Point LiveAvatar's LLM configuration at it, so the avatar's turns reach
+   this app's brain over the internet:
+
+   ```bash
+   npm run setup -- --url https://ibl-live.vercel.app
+   ```
+
+   This creates (or reuses) the secret and the LLM configuration and writes
+   `LLM_CONFIGURATION_ID` to `.env.local`. Copy that value into Vercel too and
+   redeploy. If a configuration already exists from a tunnel or an earlier URL,
+   update its `base_url` instead:
+
+   ```bash
+   curl -X PUT https://api.liveavatar.com/v1/llm-configurations/<id> \
+     -H "X-API-KEY: $LIVEAVATAR_API_KEY" -H 'Content-Type: application/json' \
+     -d '{"base_url":"https://ibl-live.vercel.app/api"}'
+   ```
+
+   `base_url` is the base; LiveAvatar appends `/chat/completions` itself.
+
+5. Open the production URL, give a name, allow the microphone, and ask a
+   question. Each live minute costs LiveAvatar credits (2 per minute in FULL
+   mode); the free tier has 10 credits a month.
 
 ## The agent's prompt
 
