@@ -655,7 +655,7 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
             Meet {identity.name}, the live guide to {identity.product}
           </h1>
           <p className="mt-2 text-white/70 text-sm md:text-base max-w-2xl mx-auto">
-            A real-time avatar whose answers come from {identity.product}&apos;s own platform.
+            A real-time avatar that answers your questions about {identity.product}.
             <br />
             Ask about the products, who uses them, and how to get started.
           </p>
