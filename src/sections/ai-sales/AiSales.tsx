@@ -74,6 +74,7 @@ import type { AgentIdentity } from '@/lib/ai-sales/brain/agent-identity';
 import { readLeadHint, writeLeadHint } from '@/lib/ai-sales/setup-storage';
 import { usePrewarmMint } from '@/lib/ai-sales/use-prewarm-mint';
 import { useAvatarPlayback } from '@/lib/ai-sales/avatar-playback';
+import { friendlyStartFailure, NO_CREDITS_MESSAGE } from '@/lib/ai-sales/session-mint';
 
 type TokenResponse = {
   session_id: string;
@@ -510,7 +511,12 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
       });
     } catch (err) {
       console.error('[ai-sales] start failed', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.');
+      const raw = err instanceof Error ? err.message : 'Something went wrong.';
+      // Out of credits or capacity at the start step: the friendly screen, not the raw JSON.
+      const friendly = friendlyStartFailure(raw);
+      if (friendly) setBusyMessage(friendly);
+      else setErrorMessage(raw);
+      sessionStartRef.current = null; // never connected: nothing to summarize
       setHasAttemptedStart(false); // allow retry
       preMintRef.current = null;
     } finally {
@@ -628,11 +634,10 @@ function AiSalesInline({ identity }: { identity: AgentIdentity }) {
 
   // Derived stage
   const stage: 'setup' | 'mic' | 'ready' | 'busy' | 'connecting' | 'connected' | 'ended' = (() => {
+    // A refused start leaves the SDK DISCONNECTED; the refusal screen wins over "ended".
+    if (busyMessage) return 'busy';
     if (sessionState === SessionState.DISCONNECTED) return 'ended';
     if (sessionState === SessionState.CONNECTED && isStreamReady) return 'connected';
-    // Checked before the connecting/auto-start fallthrough: the mint failed,
-    // so there is no session in flight to wait on.
-    if (busyMessage) return 'busy';
     if (
       isConnecting ||
       sessionState === SessionState.CONNECTING ||
@@ -959,16 +964,28 @@ function BusyStage({ message, onRetry }: { message: string; onRetry: () => void 
         className="w-full max-w-md flex flex-col items-center gap-6 text-center"
       >
         <div className="flex flex-col items-center gap-3">
-          <h2 className="text-white text-2xl md:text-4xl font-semibold">All lines are busy</h2>
+          <h2 className="text-white text-2xl md:text-4xl font-semibold">
+            {message === NO_CREDITS_MESSAGE ? 'Out of free minutes' : 'All lines are busy'}
+          </h2>
           <p className="text-white/70 text-sm md:text-base max-w-sm">{message}</p>
         </div>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="inline-flex h-[44px] items-center justify-center rounded-full bg-[#00C3FF] text-[#0E404F] px-6 text-[15px] font-semibold cursor-pointer"
-        >
-          Try again
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex h-[44px] items-center justify-center rounded-full bg-[#00C3FF] text-[#0E404F] px-6 text-[15px] font-semibold cursor-pointer"
+          >
+            Try again
+          </button>
+          <a
+            href="https://cal.com/iblai/30min"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-[44px] items-center justify-center rounded-full border border-white/20 text-white px-6 text-[15px] font-semibold"
+          >
+            Book a call
+          </a>
+        </div>
       </div>
     </div>
   );

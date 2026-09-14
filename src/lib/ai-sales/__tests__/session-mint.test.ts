@@ -67,7 +67,13 @@ describe('isBusyUpstream', () => {
   });
 });
 
-import { buildTokenPayload } from '../session-mint';
+import {
+  buildTokenPayload,
+  busyMessageFor,
+  friendlyStartFailure,
+  BUSY_MESSAGE,
+  NO_CREDITS_MESSAGE,
+} from '../session-mint';
 
 describe('buildTokenPayload', () => {
   it('FULL mode carries the persona, the brain and the top-level variables', () => {
@@ -117,5 +123,21 @@ describe('buildTokenPayload', () => {
     });
     expect(p).not.toHaveProperty('dynamic_variables');
     expect(p).not.toHaveProperty('avatar_persona');
+  });
+});
+
+describe('refusal wording', () => {
+  it('names out-of-credits at mint and at start, busy for capacity, null for real bugs', () => {
+    expect(busyMessageFor('{"code":4033,"message":"Insufficient credits for session"}')).toBe(
+      NO_CREDITS_MESSAGE,
+    );
+    expect(busyMessageFor('{"message":"concurrent session limit reached"}')).toBe(BUSY_MESSAGE);
+    expect(
+      friendlyStartFailure(
+        'Error: {"code":4033,"data":null,"message":"Insufficient credits for session"}',
+      ),
+    ).toBe(NO_CREDITS_MESSAGE);
+    expect(friendlyStartFailure('429 too many sessions')).toBe(BUSY_MESSAGE);
+    expect(friendlyStartFailure('TypeError: x is not a function')).toBeNull();
   });
 });

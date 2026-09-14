@@ -35,6 +35,21 @@ export const DYNAMIC_VAR_MAX_VALUE_LENGTH = 1000;
 export const BUSY_MESSAGE =
   'All avatar sessions are busy right now. Please try again in a few moments.';
 
+/** Rendered when the LiveAvatar account has no credits left for a session. */
+export const NO_CREDITS_MESSAGE =
+  "The avatar is taking a break: this month's free minutes are used up. Please come back later, or book a call with the team.";
+
+/**
+ * LiveAvatar refuses a session start (not only a token mint) when the account
+ * is out of credits or at its concurrency ceiling; the SDK surfaces the raw
+ * JSON as an Error message. Map it to a friendly line, or null for real bugs.
+ */
+export function friendlyStartFailure(message: string): string | null {
+  if (/4033|insufficient credits/i.test(message)) return NO_CREDITS_MESSAGE;
+  if (/concurren|too many|limit reached|quota|429|402/i.test(message)) return BUSY_MESSAGE;
+  return null;
+}
+
 /**
  * Clamp a `dynamic_variables` value to the API's 1000-char ceiling, preferring
  * a word boundary when one is close enough to the cut that we're not throwing
@@ -73,6 +88,11 @@ export function isBusyUpstream(status: number, body: string): boolean {
   if (status === 429 || status === 402) return true;
   if (status !== 400 && status !== 403 && status !== 409) return false;
   return /concurren|credit|quota|insufficient|limit reached|too many/i.test(body);
+}
+
+/** The line the mint route returns for a refused token: credits get their own wording. */
+export function busyMessageFor(body: string): string {
+  return /4033|insufficient credits/i.test(body) ? NO_CREDITS_MESSAGE : BUSY_MESSAGE;
 }
 
 export type SessionMode = 'full' | 'elevenlabs';

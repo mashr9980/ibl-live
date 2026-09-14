@@ -19,7 +19,7 @@ import { buildOpeningIntro, pickOpening } from '@/lib/ai-sales/opening';
 import { resolveLead, type LeadProfile } from '@/lib/ai-sales/lead';
 import { signSessionId } from '@/lib/ai-sales/session-auth';
 import {
-  BUSY_MESSAGE,
+  busyMessageFor,
   buildDynamicVariables,
   buildTokenPayload,
   DEFAULT_API_BASE,
@@ -196,7 +196,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     if (!tokenRes.ok) {
       if (isBusyUpstream(tokenRes.status, text)) {
         console.warn('[ai-sales] mint busy', tokenRes.status, text);
-        return Response.json({ error: { code: 'busy', message: BUSY_MESSAGE } }, { status: 503 });
+        return Response.json(
+          { error: { code: 'busy', message: busyMessageFor(text) } },
+          { status: 503 },
+        );
       }
       return Response.json(
         { error: { message: `Token mint failed: ${tokenRes.status} ${text}` } },
